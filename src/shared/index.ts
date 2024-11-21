@@ -1,3 +1,7 @@
+export function replaceItemAtIndex<T>(arr: T[], index: number, newValue: T) {
+  return [...arr.slice(0, index), newValue, ...arr.slice(index + 1)];
+}
+
 const ColorStart = 0x000000;
 const ColorEnd = 0xffffff;
 

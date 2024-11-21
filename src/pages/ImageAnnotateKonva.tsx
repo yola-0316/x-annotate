@@ -1,51 +1,59 @@
 import type Konva from "konva";
-import { useEffect, useRef, useState } from "react";
 import { Stage, Layer } from "react-konva";
-import { ActionIcon, ColorInput, Slider, Tooltip, rem } from "@mantine/core";
-import {
-  IconArrowBackUp,
-  IconDownload,
-  IconFocus2,
-  IconTrash,
-} from "@tabler/icons-react";
+import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
 
-import ToolBox from "../components/ToolBox";
-import DynaGraph, { Graph, ToolType } from "../components/DynaGraph";
+import URLImage from "@/components/URLImage";
 
-export const ImageAnnotateKonva = () => {
-  const [color, setColor] = useState("#ff4400");
-  const [strokeWidth, setStrokeWidth] = useState(2);
+import EditorControls from "@/features/EditorControls";
+import EditorTools from "@/features/EditorTools";
+import AnnotateCanvas from "@/features/AnnotateCanvas";
+import StartEntry from "@/features/StartEntry";
 
-  const [tool, setTool] = useState<ToolType>("line");
+import { annotationState } from "@/store/annotation";
+import { editorControlsState } from "@/store/editorControl";
+import { editorToolState, ToolType } from "@/store/editorTool";
+import { activeGraphState } from "@/store/graphCurrent";
+import { graphStackState } from "@/store/graphStack";
 
-  const [activeGraph, setActiveGraph] = useState<Graph>({
-    tool,
-    points: [],
-  });
-  const [historyGraphs, setHistoryGraphs] = useState<Graph[]>([]);
+export default function ImageAnnotateKonva() {
+  const annotation = useRecoilValue(annotationState);
+  const [tool] = useRecoilState(editorToolState);
+  const controls = useRecoilValue(editorControlsState);
+  const [activeGraph, setActiveGraph] = useRecoilState(activeGraphState);
+  const setHistoryGraphs = useSetRecoilState(graphStackState);
+
+  const drawGraph: ToolType[] = ["line", "rect", "ellipse"];
 
   const handleMouseDown = (options: Konva.KonvaEventObject<MouseEvent>) => {
     const { layerX: x, layerY: y } = options.evt;
-    if (!activeGraph.points?.length) {
-      setActiveGraph({
-        tool,
-        points: [x, y],
-      });
-    } else if (activeGraph.points?.length === 2) {
-      setActiveGraph((prev) => ({
-        tool: prev.tool,
-        points: [...prev.points, x, y],
-      }));
-    } else {
-      setHistoryGraphs((prev) => [...prev, activeGraph]);
-      setActiveGraph({ tool, points: [] });
+    if (tool === "move") return;
+    if (drawGraph.includes(tool)) {
+      if (!activeGraph.points?.length) {
+        setActiveGraph({
+          tool,
+          points: [x, y],
+          ...controls,
+        });
+      } else if (activeGraph.points?.length === 2) {
+        setActiveGraph((prev) => ({
+          ...prev,
+          points: [...prev.points, x, y],
+        }));
+      } else {
+        setHistoryGraphs((prev) => [...prev, activeGraph]);
+        setActiveGraph({ tool, points: [] });
+      }
+    }
+    if (tool === "text") {
+      setActiveGraph({ tool, points: [x, y] });
     }
   };
 
   const handleMouseMove = (options: Konva.KonvaEventObject<MouseEvent>) => {
-    if (activeGraph.points?.length) {
+    if (tool === "move") return;
+    if (drawGraph.includes(tool) && activeGraph.points?.length) {
       setActiveGraph((prev) => ({
-        tool: prev.tool,
+        ...prev,
         points: [
           prev.points[0],
           prev.points[1],
@@ -57,85 +65,41 @@ export const ImageAnnotateKonva = () => {
   };
 
   return (
-    <div className="grid grid-cols-[3rem_1fr] h-full">
-      <div className="argbar col-span-2 flex gap-4 items-center">
-        <i className="text-2xl text-purple-500 font-bold px-4">X-Annotate</i>
-        <ColorInput
-          className="w-28"
-          size="xs"
-          value={color}
-          onChange={setColor}
-          eyeDropperIcon={
-            <IconFocus2
-              style={{ width: rem(18), height: rem(18) }}
-              stroke={1.5}
-            />
-          }
-          swatches={[
-            "#2e2e2e",
-            "#868e96",
-            "#fa5252",
-            "#e64980",
-            "#be4bdb",
-            "#7950f2",
-            "#4c6ef5",
-            "#228be6",
-            "#15aabf",
-            "#12b886",
-            "#40c057",
-            "#82c91e",
-            "#fab005",
-            "#fd7e14",
-          ]}
-        />
-        <Slider
-          className="w-40"
-          value={strokeWidth}
-          onChange={setStrokeWidth}
-          min={1}
-          max={32}
-        />
-        <span className="text-sm w-10">{strokeWidth}px</span>
-        <Tooltip label="Undo">
-          <ActionIcon>
-            <IconArrowBackUp />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label="Clear">
-          <ActionIcon>
-            <IconTrash />
-          </ActionIcon>
-        </Tooltip>
-        <Tooltip label="Save">
-          <ActionIcon>
-            <IconDownload />
-          </ActionIcon>
-        </Tooltip>
+    <div className="grid grid-cols-[4rem_1fr] grid-rows-[5rem_1fr] h-full">
+      <div className="topbar col-span-2 flex gap-4 items-center bg-slate-300">
+        <i className="text-2xl text-purple-500 font-bold pl-4">X-Annotate</i>
+        <EditorControls />
       </div>
-      <div className="sidebar">
-        <ToolBox tool={tool} setTool={setTool} />
+
+      <div className="sidebar bg-slate-400 py-4">
+        <EditorTools />
       </div>
-      <div className="content flex-grow">
-        <Stage
-          width={1024}
-          height={1024}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          className="border border-gray-300"
-        >
-          <Layer>
-            <DynaGraph
-              tool={tool}
-              activeGraph={activeGraph}
-              graphStack={historyGraphs}
-              color={color}
-              strokeWidth={strokeWidth}
-            />
-          </Layer>
-        </Stage>
+
+      <div className="content flex-grow bg-slate-500">
+        {annotation.initialized ? (
+          <div className="h-full flex items-center justify-center">
+            <div
+              className={`w-[${annotation.canvas.width}px] h-[${annotation.canvas.height}px]`}
+            >
+              <Stage
+                width={annotation.canvas.width}
+                height={annotation.canvas.height}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                className="bg-white"
+              >
+                <Layer>
+                  {annotation.fileUrl && <URLImage src={annotation.fileUrl} />}
+
+                  <AnnotateCanvas />
+                </Layer>
+              </Stage>
+            </div>
+          </div>
+        ) : (
+          <StartEntry />
+        )}
       </div>
     </div>
   );
-};
-
-export default ImageAnnotateKonva;
+}

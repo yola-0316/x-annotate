@@ -5,36 +5,28 @@ import {
   IconSquare,
   IconCircle,
   IconLine,
+  IconArrowsMove,
 } from "@tabler/icons-react";
-import { Tooltip, rem } from "@mantine/core";
+import { Tooltip } from "@mantine/core";
+import { useRecoilState } from "recoil";
 
-import { ToolType } from "./DynaGraph";
+import { editorToolState, tools } from "@/store/editorTool";
 
 const iconNameMap = {
+  move: IconArrowsMove,
+  pencil: IconPencil,
+  eraser: IconEraser,
   line: IconLine,
   ellipse: IconCircle,
   rect: IconSquare,
+  text: IconCursorText,
 };
 
-interface ToolBoxProps {
-  tool: ToolType;
-  setTool: (tool: ToolType) => void;
-}
-export default function ToolBox({ tool, setTool }: ToolBoxProps) {
-  const tools: ToolType[] = ["line", "ellipse", "rect"];
+export default function ToolBox() {
+  const [tool, setTool] = useRecoilState(editorToolState);
 
   return (
     <div className="tool-box flex flex-col items-center gap-4">
-      <Tooltip label="Pencil">
-        <button>
-          <IconPencil />
-        </button>
-      </Tooltip>
-      <Tooltip label="Eraser">
-        <button>
-          <IconEraser />
-        </button>
-      </Tooltip>
       {tools.map((t) => {
         const Icon = iconNameMap[t];
         return (
@@ -49,11 +41,6 @@ export default function ToolBox({ tool, setTool }: ToolBoxProps) {
           </Tooltip>
         );
       })}
-      <Tooltip label="Text">
-        <button>
-          <IconCursorText />
-        </button>
-      </Tooltip>
     </div>
   );
 }
